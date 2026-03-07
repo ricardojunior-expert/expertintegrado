@@ -80,6 +80,21 @@ For each scenario, capture:
 }
 ```
 
+### Checkpoint: salvar progresso após cada cenário
+
+Após concluir e avaliar cada cenário, salve o resultado parcial em `progresso_teste.json` no diretório de saída. Isso permite retomar o teste a partir do cenário correto se a sessão for interrompida, sem precisar repetir cenários já executados.
+
+### Reconexão se a extensão Chrome desconectar
+
+Se durante a execução aparecer o erro `"Claude in Chrome is not connected"` ou qualquer falha de conexão com o browser:
+
+1. Chame `tabs_context_mcp` para reconectar a extensão
+2. Verifique se a aba do ChatGuru ainda está aberta
+3. **Se sim:** continue de onde parou — não reinicie o cenário atual
+4. **Se a aba fechou:** reabra o link do ChatGuru, envie `reiniciar` + `supersdr`, repita o cenário atual a partir do início
+
+Nunca abandone o teste por desconexão — a reconexão é simples e o teste deve continuar.
+
 ### Important browser behavior notes
 - Always wait for the AI to finish responding before sending the next message — look for when typing stops
 - If the AI doesn't respond within 20 seconds, wait another 10 seconds before continuing
@@ -118,9 +133,43 @@ Provide a brief justification (2–3 sentences) for each rating, with direct ref
 
 ---
 
+### ⚠️ Regra crítica: silêncio após transferência NÃO é bug
+
+Antes de marcar um cenário como ❌ REPROVADO por "bot travou" ou "sem resposta", verifique **obrigatoriamente**:
+
+1. A última mensagem do bot foi uma mensagem de espera ou transferência? (ex: *"Aguarde um momento"*, *"Vou te transferir"*, *"Um instante, por favor"*)
+2. O prompt de transferência define que o bot para de responder após transferir para um humano?
+
+**Se SIM para ambos → o silêncio é o comportamento CORRETO.** Marque ✅ para o critério de transferência. O bot transferiu com sucesso e o humano assumiu a conversa.
+
+**Só marque como "BOT TRAVOU"** (❌) quando o silêncio ocorre:
+- Sem nenhuma mensagem de espera/transferência anterior, **E**
+- Por mais de 90 segundos desde a última mensagem do cliente
+
+### Definição precisa de timeout (bot realmente travado)
+
+O bot está **TRAVADO** (❌) quando todas estas condições são verdadeiras:
+- Ficou **mais de 90 segundos** sem enviar nenhuma mensagem
+- A última mensagem do bot **não foi** uma mensagem de espera ou transferência
+- A mensagem do cliente era uma resposta direta aguardando processamento
+
+Não confundir com: silêncio após transferência confirmada pelo prompt (ver regra acima).
+
+---
+
 ## Step 4: Generate PDF report
 
 Use the `anthropic-skills:pdf` skill to generate a professional PDF report.
+
+### Se gerar o PDF via pdfkit (Node.js)
+
+Se optar por gerar o PDF diretamente com pdfkit (para layouts mais ricos), **sempre** inclua `bufferPages: true` no construtor:
+
+```js
+const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
+```
+
+Sem essa opção, `doc.switchToPage()` falha com `"switchToPage(N) out of bounds"` ao tentar adicionar rodapés ou números de página em todas as páginas, porque o pdfkit descarta páginas anteriores da memória por padrão. O erro só aparece no final e exige regerar o arquivo inteiro.
 
 ### Report structure:
 
