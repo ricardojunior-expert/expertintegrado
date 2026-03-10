@@ -43,29 +43,35 @@ Make scenarios realistic — use natural, casual Portuguese. Vary the tone: some
 
 ## Step 2: Execute each scenario in ChatGuru
 
-Use browser automation to run each scenario. The process is sequential — one scenario at a time.
+Use **Playwright MCP** to run each scenario in the user's local browser. The process is sequential — one scenario at a time.
 
 ### Setup
-1. Open the ChatGuru link provided by the user
-2. Take a screenshot to confirm the page loaded correctly
+1. Use `browser_navigate` to open the ChatGuru link provided by the user
+2. Use `browser_snapshot` to confirm the page loaded and the chat input is visible
+3. Use `browser_screenshot` to capture the initial state
 
-### For each scenario:
+### For each scenario (including the first):
 
-**First scenario:**
-1. Type and send: `supersdr` (this activates the AI)
-2. Wait 5–10 seconds for the AI to respond
-3. Take a screenshot of the response
-4. Continue sending the client messages from the scenario, one at a time
-5. After each message, wait for the AI to respond (5–15 seconds)
-6. Take a screenshot after each exchange
-7. Record the full conversation (messages sent + AI responses)
+Always start every scenario — including the very first one — with a reset. There may already be an open session from a previous test, so skipping `reiniciar` on the first scenario can contaminate the results.
 
-**Scenarios 2–6 (reset first):**
-1. Type and send: `reiniciar` (this resets the conversation)
+**Reset + activate (all 6 scenarios):**
+1. Use `browser_type` to type `reiniciar` and send it
 2. Wait 3 seconds
-3. Type and send: `supersdr` (reactivate)
-4. Wait 5–10 seconds for the activation response
-5. Then proceed as above
+3. Use `browser_type` to type `supersdr` and send it
+4. Wait 5–10 seconds for the AI's activation response
+5. Use `browser_screenshot` to capture the activation response
+
+**Then send the scenario messages:**
+1. Find the chat input field using `browser_snapshot`
+2. For each client message in the scenario:
+   - `browser_type` the message into the input field
+   - Send it (Enter key or send button with `browser_click`)
+   - Wait for the AI to finish responding (5–15 seconds)
+   - `browser_screenshot` after each exchange
+3. Record the full conversation (messages sent + AI responses read from the snapshot)
+
+### Reading AI responses
+After sending each message, use `browser_snapshot` to read the AI's response text from the chat — don't rely only on screenshots for recording the conversation. Extract the text from the last AI message bubble in the snapshot.
 
 ### Recording conversations
 For each scenario, capture:
@@ -84,22 +90,19 @@ For each scenario, capture:
 
 Após concluir e avaliar cada cenário, salve o resultado parcial em `progresso_teste.json` no diretório de saída. Isso permite retomar o teste a partir do cenário correto se a sessão for interrompida, sem precisar repetir cenários já executados.
 
-### Reconexão se a extensão Chrome desconectar
+### Recuperação de erros do Playwright
 
-Se durante a execução aparecer o erro `"Claude in Chrome is not connected"` ou qualquer falha de conexão com o browser:
-
-1. Chame `tabs_context_mcp` para reconectar a extensão
-2. Verifique se a aba do ChatGuru ainda está aberta
-3. **Se sim:** continue de onde parou — não reinicie o cenário atual
-4. **Se a aba fechou:** reabra o link do ChatGuru, envie `reiniciar` + `supersdr`, repita o cenário atual a partir do início
-
-Nunca abandone o teste por desconexão — a reconexão é simples e o teste deve continuar.
+Se ocorrer um erro de navegação ou o browser fechar inesperadamente:
+1. Use `browser_navigate` para reabrir o link do ChatGuru
+2. Envie `reiniciar` seguido de `supersdr` para reiniciar o cenário atual do zero
+3. Continue a partir do cenário que falhou
 
 ### Important browser behavior notes
-- Always wait for the AI to finish responding before sending the next message — look for when typing stops
-- If the AI doesn't respond within 20 seconds, wait another 10 seconds before continuing
-- Scroll down in the chat to see the latest messages if needed
-- The AI may send multiple message bubbles — wait for all of them before responding
+- Always wait for the AI to finish responding before sending the next message — watch for the typing indicator to disappear in the snapshot
+- If the AI doesn't respond within 20 seconds, take a snapshot to check the current state before waiting more
+- Use `browser_scroll` to scroll down in the chat if the latest messages are not visible
+- The AI may send multiple message bubbles — wait for all of them (no typing indicator) before responding
+- If the input field loses focus between messages, click it again with `browser_click` before typing
 
 ---
 
